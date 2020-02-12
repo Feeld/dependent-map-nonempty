@@ -23,3 +23,22 @@ library
   hs-source-dirs:      src
   default-language:    Haskell2010
   ghc-options: -Wall -fwarn-redundant-constraints -fwarn-incomplete-uni-patterns
+
+test-suite spec
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  other-modules:
+      Data.NonEmpty.Dependent.MapSpec
+  hs-source-dirs:
+      spec
+  ghc-options:
+    -Wall
+    -threaded
+    -fprint-potential-instances
+    -fwarn-redundant-constraints
+  build-depends:
+    base,
+    hspec,
+    QuickCheck,
+    dependent-map-nonempty,
+    dependent-sum-template

@@ -1,11 +1,12 @@
-{-# LANGUAGE GADTs, RankNTypes #-}
-{-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE PolyKinds #-}
-{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE BangPatterns         #-}
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE GADTs                #-}
+{-# LANGUAGE PolyKinds            #-}
+{-# LANGUAGE RankNTypes           #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE TypeApplications     #-}
+{-# LANGUAGE TypeOperators        #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE FlexibleContexts #-}
 
 module Data.NonEmpty.Dependent.Map
     ( NonEmptyDMap
@@ -119,20 +120,20 @@ module Data.NonEmpty.Dependent.Map
 
     ) where
 
-import Prelude hiding (null, lookup, map)
+import           Prelude                hiding (lookup, map, null)
 
-import Data.Dependent.Sum
-import Data.Dependent.Map (DMap)
-import qualified Data.Dependent.Map as D
-import Data.Constraint.Extras
-import Data.GADT.Compare
-import Data.GADT.Show
-import Data.List.NonEmpty (NonEmpty((:|)))
-import qualified Data.List.NonEmpty as NE
-import Data.Maybe (isJust, fromMaybe)
-import Data.List (foldl')
-import Data.Some
-import Text.Read
+import           Data.Constraint.Extras
+import           Data.Dependent.Map     (DMap)
+import qualified Data.Dependent.Map     as D
+import           Data.Dependent.Sum
+import           Data.GADT.Compare
+import           Data.GADT.Show
+import           Data.List              (foldl')
+import           Data.List.NonEmpty     (NonEmpty ((:|)))
+import qualified Data.List.NonEmpty     as NE
+import           Data.Maybe             (fromMaybe, isJust)
+import           Data.Some
+import           Text.Read
 
 data NonEmptyDMap k f = NonEmptyDMap (DSum k f) (D.DMap k f)
 
@@ -148,7 +149,7 @@ instance (GCompare k) => Semigroup (NonEmptyDMap k f) where
 -- > singleton 1 'a'        == fromList [(1, 'a')]
 -- > size (singleton 1 'a') == 1
 singleton :: k v -> f v -> NonEmptyDMap k f
-singleton k v = NonEmptyDMap (k :=> v) D.empty 
+singleton k v = NonEmptyDMap (k :=> v) D.empty
 
 {--------------------------------------------------------------------
   Query
@@ -249,7 +250,7 @@ insertLookupWithKey f k v m =
 -- | /O(log n)/. A strict version of 'insertLookupWithKey'.
 insertLookupWithKey' :: forall k f v. GCompare k => (k v -> f v -> f v -> f v) -> k v -> f v -> NonEmptyDMap k f
                      -> (Maybe (f v), NonEmptyDMap k f)
-insertLookupWithKey' f k v m = 
+insertLookupWithKey' f k v m =
   let (!x,!m') = D.insertLookupWithKey' f k v (toDMap m)
   in (x,unsafeFromDMap m')
 
@@ -308,7 +309,7 @@ alter f k = liftDM (D.alter f k)
 -- | Works the same as 'alter' except the new value is return in some 'Functor' @f@.
 -- In short : @(\v' -> alter (const v') k dm) <$> f (lookup k dm)@
 alterF :: forall k f v g. (GCompare  k, Functor f) => k v -> (Maybe (g v) -> f (Maybe (g v))) -> NonEmptyDMap k g -> f (Maybe (NonEmptyDMap k g))
-alterF f k = fmap fromDMap . D.alterF f k . toDMap 
+alterF f k = fmap fromDMap . D.alterF f k . toDMap
 
 {--------------------------------------------------------------------
   Minimal, Maximal
@@ -340,10 +341,10 @@ deleteMax (NonEmptyDMap x xs)
 
 -- | /O(log n)/. Update the value at the minimal key.
 updateMinWithKey :: (forall v. k v -> f v -> Maybe (f v)) -> NonEmptyDMap k f -> Maybe (NonEmptyDMap k f)
-updateMinWithKey f (NonEmptyDMap (k :=> v) xs) = 
+updateMinWithKey f (NonEmptyDMap (k :=> v) xs) =
   case f k v of
     Just v' -> Just (NonEmptyDMap (k :=> v') xs)
-    Nothing  -> Nothing
+    Nothing -> Nothing
 
 -- | /O(log n)/. Update the value at the maximal key.
 updateMaxWithKey :: (forall v. k v -> f v -> Maybe (f v)) -> NonEmptyDMap k f -> Maybe (NonEmptyDMap k f)
@@ -629,7 +630,7 @@ maxViewWithKey, deleteFindMax :: forall k f . NonEmptyDMap k f -> (DSum k f, May
 maxViewWithKey (NonEmptyDMap x xs) =
   case D.maxViewWithKey xs of
     Just (x', m') -> (x',fromDMap m')
-    Nothing -> (x, Nothing)
+    Nothing       -> (x, Nothing)
 deleteFindMax = maxViewWithKey
 
 

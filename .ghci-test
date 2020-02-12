@@ -1,0 +1,2 @@
+:set -isrc:spec
+:load spec/Main.hs
