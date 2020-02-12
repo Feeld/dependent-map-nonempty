@@ -17,24 +17,25 @@ import           Data.GADT.Compare.TH
 import           Data.GADT.Show
 import           Data.GADT.Show.TH
 import           Data.List.NonEmpty
+import           Data.Dependent.Map as D
 import           Data.NonEmpty.Dependent.Map as DM
 import           Test.Hspec
 import           Test.Hspec.QuickCheck
 import           Test.QuickCheck
 
 newtype EmailAddress = EmailAddress String
-  deriving (Eq, Show, Arbitrary)
+  deriving (Eq, Ord, Show, Arbitrary)
 newtype FacebookId = FacebookId String
-  deriving (Eq, Show, Arbitrary)
+  deriving (Eq, Ord, Show, Arbitrary)
 newtype AppleToken = AppleToken String
-  deriving (Eq, Show, Arbitrary)
+  deriving (Eq, Ord, Show, Arbitrary)
 
 
 -- | This is the tag used as key in the NonEmptyDMap
 data AuthMethod a where
-  EmailAuth :: AuthMethod EmailAddress
+  EmailAuth    :: AuthMethod EmailAddress
   FacebookAuth :: AuthMethod FacebookId
-  AppleAuth :: AuthMethod AppleToken
+  AppleAuth    :: AuthMethod AppleToken
 
 $(deriveGEq ''AuthMethod)
 $(deriveGCompare ''AuthMethod)
@@ -48,6 +49,9 @@ spec :: Spec
 spec = describe "NonEmptyDMap" $ do
   prop "always has size >= 1" $ \(m :: AuthMethodMap) ->
     DM.size m `shouldSatisfy` (>=1)
+
+  prop "head is always the smallest element" $ \((x:|>xs) :: AuthMethodMap) ->
+    not (D.null xs) ==> x `shouldSatisfy` (< D.findMin xs)
 
 type AuthMethodMap = NonEmptyDMap AuthMethod Identity
 

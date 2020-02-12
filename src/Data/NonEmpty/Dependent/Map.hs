@@ -9,7 +9,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Data.NonEmpty.Dependent.Map
-    ( NonEmptyDMap
+    ( NonEmptyDMap(..)
     , DSum(..), Some(..)
     , GCompare(..), GOrdering(..)
 
@@ -135,7 +135,9 @@ import           Data.Maybe             (fromMaybe, isJust)
 import           Data.Some
 import           Text.Read
 
-data NonEmptyDMap k f = NonEmptyDMap (DSum k f) (D.DMap k f)
+infixr 5 :|>
+
+data NonEmptyDMap k f = DSum k f :|> D.DMap k f
 
 instance (GCompare k) => Semigroup (NonEmptyDMap k f) where
   (<>) = union
@@ -149,7 +151,7 @@ instance (GCompare k) => Semigroup (NonEmptyDMap k f) where
 -- > singleton 1 'a'        == fromList [(1, 'a')]
 -- > size (singleton 1 'a') == 1
 singleton :: k v -> f v -> NonEmptyDMap k f
-singleton k v = NonEmptyDMap (k :=> v) D.empty
+singleton k v = (k :=> v) :|> D.empty
 
 {--------------------------------------------------------------------
   Query
@@ -157,14 +159,14 @@ singleton k v = NonEmptyDMap (k :=> v) D.empty
 
 -- | /O(1)/. The number of elements in the map.
 size :: NonEmptyDMap k f -> Int
-size (NonEmptyDMap _ xs) = D.size xs + 1
+size (_ :|> xs) = D.size xs + 1
 
 -- | /O(log n)/. Lookup the value at a key in the map.
 --
 -- The function will return the corresponding value as @('Just' value)@,
 -- or 'Nothing' if the key isn't in the map.
 lookup :: forall k f v. GCompare k => k v -> NonEmptyDMap k f -> Maybe (f v)
-lookup x (NonEmptyDMap (k:=>v) xs)
+lookup x ((k:=>v) :|> xs)
   | Just Refl <- x `geq`  k = Just v
   | otherwise = D.lookup x xs
 
@@ -204,11 +206,11 @@ findWithDefault def k = fromMaybe def . lookup k
 -- replaced with the supplied value. 'insert' is equivalent to
 -- @'insertWith' 'const'@.
 insert :: forall k f v. GCompare k => k v -> f v -> NonEmptyDMap k f -> NonEmptyDMap k f
-insert !k v (NonEmptyDMap (k0:=>v0) xs) =
+insert !k v ((k0:=>v0) :|> xs) =
   case gcompare k k0 of
-    GLT -> NonEmptyDMap (k:=>v) (D.insert k0 v0 xs)
-    GEQ -> NonEmptyDMap (k:=>v) xs
-    GGT -> NonEmptyDMap (k0:=>v0) (D.insert k v xs)
+    GLT -> (k:=>v)   :|> D.insert k0 v0 xs
+    GEQ -> (k:=>v)   :|> xs
+    GGT -> (k0:=>v0) :|> D.insert k v xs
 
 
 -- | /O(log n)/. Insert with a function, combining new value and old value.
@@ -320,40 +322,40 @@ findMin :: NonEmptyDMap k f -> DSum k f
 findMin = lookupMin
 
 lookupMin :: NonEmptyDMap k f -> DSum k f
-lookupMin (NonEmptyDMap x _) = x
+lookupMin (x :|> _) = x
 
 -- | /O(log n)/. The maximal key of the map.
 findMax :: NonEmptyDMap k f -> DSum k f
 findMax = lookupMax
 
 lookupMax :: NonEmptyDMap k f -> DSum k f
-lookupMax (NonEmptyDMap x xs) = fromMaybe x (D.lookupMax xs)
+lookupMax (x :|> xs) = fromMaybe x (D.lookupMax xs)
 
 -- | /O(log n)/. Delete the minimal key.
 deleteMin :: NonEmptyDMap k f -> Maybe (NonEmptyDMap k f)
-deleteMin (NonEmptyDMap _ xs) = fromDMap xs
+deleteMin (_ :|> xs) = fromDMap xs
 
 -- | /O(log n)/. Delete the maximal key.
 deleteMax :: NonEmptyDMap k f -> Maybe (NonEmptyDMap k f)
-deleteMax (NonEmptyDMap x xs)
+deleteMax (x :|> xs)
   | D.null xs = Nothing
-  | otherwise = Just (NonEmptyDMap x (D.deleteMax xs))
+  | otherwise = Just (x :|> D.deleteMax xs)
 
 -- | /O(log n)/. Update the value at the minimal key.
 updateMinWithKey :: (forall v. k v -> f v -> Maybe (f v)) -> NonEmptyDMap k f -> Maybe (NonEmptyDMap k f)
-updateMinWithKey f (NonEmptyDMap (k :=> v) xs) =
+updateMinWithKey f ((k:=>v) :|> xs) =
   case f k v of
-    Just v' -> Just (NonEmptyDMap (k :=> v') xs)
+    Just v' -> Just ((k:=>v') :|> xs)
     Nothing -> Nothing
 
 -- | /O(log n)/. Update the value at the maximal key.
 updateMaxWithKey :: (forall v. k v -> f v -> Maybe (f v)) -> NonEmptyDMap k f -> Maybe (NonEmptyDMap k f)
-updateMaxWithKey f (NonEmptyDMap (k:=>v) xs)
+updateMaxWithKey f ((k:=>v) :|> xs)
   | D.null xs =
       case f k v of
-        Just v' -> Just (NonEmptyDMap (k:=>v') xs)
+        Just v' -> Just ((k:=>v') :|> xs)
         Nothing -> Nothing
-  | otherwise = Just (NonEmptyDMap (k:=>v) (D.updateMaxWithKey f xs))
+  | otherwise = Just ((k:=>v) :|> D.updateMaxWithKey f xs)
 
 {--------------------------------------------------------------------
   Union.
@@ -477,18 +479,18 @@ mapMaybeWithKey f = liftDM (D.mapMaybeWithKey f)
 
 -- | /O(n)/. Map a function over all values in the map.
 map :: (forall v. f v -> g v) -> NonEmptyDMap k f -> NonEmptyDMap k g
-map f (NonEmptyDMap (k:=>v) xs) = NonEmptyDMap (k:=>f v) (D.map f xs)
+map f ((k:=>v) :|> xs) = (k:=>f v) :|> D.map f xs
 
 -- | /O(n)/. Map a function over all values in the map.
 mapWithKey :: (forall v. k v -> f v -> g v) -> NonEmptyDMap k f -> NonEmptyDMap k g
-mapWithKey f (NonEmptyDMap (k:=>v) xs) = NonEmptyDMap (k:=>f k v) (D.mapWithKey f xs)
+mapWithKey f ((k:=>v) :|> xs) = (k:=>f k v) :|> D.mapWithKey f xs
 
 -- | /O(n)/.
 -- @'traverseWithKey' f m == 'fromList' <$> 'traverse' (\(k, v) -> (,) k <$> f k v) ('toList' m)@
 -- That is, behaves exactly like a regular 'traverse' except that the traversing
 -- function also has access to the key associated with a value.
 traverseWithKey :: Applicative t => (forall v. k v -> f v -> t (g v)) -> NonEmptyDMap k f -> t (NonEmptyDMap k g)
-traverseWithKey f (NonEmptyDMap (k:=>v) xs) = NonEmptyDMap <$> ((k:=>) <$> f k v) <*> D.traverseWithKey f xs
+traverseWithKey f ((k:=>v) :|> xs) = (:|>) <$> ((k:=>) <$> f k v) <*> D.traverseWithKey f xs
 
 -- | /O(n)/. The function 'mapAccumLWithKey' threads an accumulating
 -- argument throught the map in ascending order of keys.
@@ -560,11 +562,11 @@ foldlWithKey f z = D.foldlWithKey f z . toDMap
 -- > keys (singleton a) == a:|[]
 
 keys  :: NonEmptyDMap k f -> NonEmpty (Some k)
-keys (NonEmptyDMap (k:=>_) xs ) = Some k :| D.keys xs
+keys ((k:=>_) :|> xs ) = Some k :| D.keys xs
 
 -- | /O(n)/. Return all key\/value pairs in the map in ascending key order.
 assocs :: NonEmptyDMap k f -> NonEmpty (DSum k f)
-assocs (NonEmptyDMap x xs) = x :| D.assocs xs
+assocs (x :|> xs) = x :| D.assocs xs
 
 {--------------------------------------------------------------------
   Lists
@@ -591,7 +593,7 @@ toAscList = assocs
 
 -- | /O(n)/. Convert to a descending list.
 toDescList :: NonEmptyDMap k f -> NonEmpty (DSum k f)
-toDescList (NonEmptyDMap x xs) = NE.fromList (D.toDescList xs <> [x])
+toDescList (x :|> xs) = NE.fromList (D.toDescList xs <> [x])
 
 {--------------------------------------------------------------------
   Building trees from ascending/descending lists can be done in linear time.
@@ -621,13 +623,13 @@ fromDistinctAscList = unsafeFromDMap . D.fromDistinctAscList . NE.toList
 -- | /O(log n)/. Retrieves the minimal (key :=> value) entry of the map, and
 -- the map stripped of that element.
 minViewWithKey, deleteFindMin :: forall k f . NonEmptyDMap k f -> (DSum k f, Maybe (NonEmptyDMap k f))
-minViewWithKey (NonEmptyDMap x xs) = (x, fromDMap xs)
+minViewWithKey (x :|> xs) = (x, fromDMap xs)
 deleteFindMin = minViewWithKey
 
 -- | /O(log n)/. Retrieves the maximal (key :=> value) entry of the map, and
 -- the map stripped of that element.
 maxViewWithKey, deleteFindMax :: forall k f . NonEmptyDMap k f -> (DSum k f, Maybe (NonEmptyDMap k f))
-maxViewWithKey (NonEmptyDMap x xs) =
+maxViewWithKey (x :|> xs) =
   case D.maxViewWithKey xs of
     Just (x', m') -> (x',fromDMap m')
     Nothing       -> (x, Nothing)
@@ -652,7 +654,7 @@ instance (GCompare k, Has' Eq k f, Has' Ord k f) => Ord (NonEmptyDMap k f) where
 instance (GCompare k, GRead k, Has' Read k f) => Read (NonEmptyDMap k f) where
   readPrec = parens $ prec 10 $ do
     Ident "NonEmptyDMap" <- lexP
-    NonEmptyDMap <$> readPrec <*> readPrec
+    (:|>) <$> readPrec <*> readPrec
 
   readListPrec = readListPrecDefault
 
@@ -660,8 +662,8 @@ instance (GCompare k, GRead k, Has' Read k f) => Read (NonEmptyDMap k f) where
   Show
 --------------------------------------------------------------------}
 instance (GShow k, Has' Show k f) => Show (NonEmptyDMap k f) where
-    showsPrec p (NonEmptyDMap x xs) = showParen (p>10)
-        ( showString "NonEmptyDMap "
+    showsPrec p (x :|> xs) = showParen (p>10)
+        ( showString "(:|>) "
         . showsPrec 11 x
         . showsPrec 11 xs
         )
@@ -689,13 +691,13 @@ liftDM2 f a b = fromDMap (f (toDMap a) (toDMap b))
 {-# INLINE liftDM2 #-}
 
 toDMap :: forall k f. GCompare k => NonEmptyDMap k f -> DMap k f
-toDMap (NonEmptyDMap (k:=>v) xs) = D.insert k v xs
+toDMap ((k:=>v) :|> xs) = D.insert k v xs
 {-# INLINE toDMap #-}
 
 fromDMap :: DMap k f -> Maybe (NonEmptyDMap k f)
-fromDMap = fmap (uncurry NonEmptyDMap) . D.minViewWithKey
+fromDMap = fmap (uncurry (:|>)) . D.minViewWithKey
 {-# INLINE fromDMap #-}
 
 unsafeFromDMap :: DMap k f -> NonEmptyDMap k f
-unsafeFromDMap = uncurry NonEmptyDMap . D.deleteFindMin
+unsafeFromDMap = uncurry (:|>) . D.deleteFindMin
 {-# INLINE unsafeFromDMap #-}
