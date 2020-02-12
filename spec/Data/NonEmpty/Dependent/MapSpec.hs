@@ -37,6 +37,15 @@ data AuthMethod a where
   FacebookAuth :: AuthMethod FacebookId
   AppleAuth    :: AuthMethod AppleToken
 
+-- | This is a non-empty dependent map keyed by AuthMethod and valued by the
+-- type associated with each AuthMethod (eg: EmailAuth->EmailAddress,
+-- FacebookAuth->FacebookId, ...)
+-- 
+-- Example:
+--  let m = (EmailAuth :==> EmailAddress "foo@bar")
+--      :|> fromList [ FacebookAuth :==> FacebookId "foobar" ]
+type AuthMethodMap = NonEmptyDMap AuthMethod Identity
+
 $(deriveGEq ''AuthMethod)
 $(deriveGCompare ''AuthMethod)
 $(deriveGShow ''AuthMethod)
@@ -53,7 +62,10 @@ spec = describe "NonEmptyDMap" $ do
   prop "head is always the smallest element" $ \((x:|>xs) :: AuthMethodMap) ->
     not (D.null xs) ==> x `shouldSatisfy` (< D.findMin xs)
 
-type AuthMethodMap = NonEmptyDMap AuthMethod Identity
+  prop "fromList . toList = id" $ \(m :: AuthMethodMap) ->
+    (DM.fromList . DM.toList) m `shouldBe` m
+
+
 
 instance Has' Arbitrary AuthMethod f => Arbitrary (DSum AuthMethod f) where
   arbitrary = oneof
