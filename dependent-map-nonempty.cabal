@@ -40,5 +40,8 @@ test-suite spec
     base,
     hspec,
     QuickCheck,
+    dependent-map,
     dependent-map-nonempty,
-    dependent-sum-template
+    dependent-sum,
+    dependent-sum-template,
+    constraints-extras

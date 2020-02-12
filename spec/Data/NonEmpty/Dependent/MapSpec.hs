@@ -14,7 +14,6 @@ import           Data.Constraint.Extras      (Has')
 import           Data.Constraint.Extras.TH
 import           Data.Functor.Identity       (Identity)
 import           Data.GADT.Compare.TH
-import           Data.GADT.Show
 import           Data.GADT.Show.TH
 import           Data.List.NonEmpty
 import           Data.Dependent.Map as D
